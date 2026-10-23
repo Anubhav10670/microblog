@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin</title>
+  <meta name="theme-color" content="#080808">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin">
+
+  <!-- Sign in -->
+  <section class="login" id="login">
+    <h1>Sign in</h1>
+    <form id="login-form">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button class="btn primary" type="submit" id="login-btn">Sign in</button>
+      <p class="note" id="login-error"></p>
+    </form>
+  </section>
+
+  <!-- The admin itself (hidden until signed in) -->
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="topbar-inner">
+        <nav class="tabs">
+          <button class="tab active" data-tab="write">Write</button>
+          <button class="tab" data-tab="posts">Posts</button>
+          <button class="tab" data-tab="profile">Profile</button>
+        </nav>
+        <button class="signout" id="signout">Sign out</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+
+      <!-- Write -->
+      <section class="panel" id="panel-write">
+        <p class="editing-note hidden" id="editing-note">
+          Editing a post.
+          <button class="signout" id="cancel-edit" type="button">Cancel</button>
+        </p>
+
+        <div class="composer">
+          <img class="avatar" id="composer-avatar" alt="">
+          <div class="composer-main">
+            <textarea id="content" placeholder="What's on your mind?" rows="3"></textarea>
+
+            <div class="emoji-panel hidden" id="emoji-panel"></div>
+
+            <div class="toolbar" id="toolbar">
+              <button class="tool" type="button" data-action="highlight" title="Highlight (==text==)"><mark>H</mark></button>
+              <button class="tool" type="button" data-action="bold" title="Bold (Ctrl+B)"><strong>B</strong></button>
+              <button class="tool" type="button" data-action="italic" title="Italic (Ctrl+I)"><em>I</em></button>
+              <button class="tool" type="button" data-action="strike" title="Strikethrough"><s>S</s></button>
+              <button class="tool" type="button" data-action="link" title="Link">&#128279;</button>
+              <button class="tool" type="button" data-action="emoji" title="Emoji">&#128512;</button>
+            </div>
+
+            <label class="hidden" id="bump-label" style="margin-top:0">
+              <input type="checkbox" id="bump" style="width:auto"> Move to top of feed (set date to now)
+            </label>
+
+            <div class="actions">
+              <button class="btn" type="button" id="btn-clear">Clear</button>
+              <span class="spacer"></span>
+              <button class="btn" type="button" id="btn-draft">Save draft</button>
+              <button class="btn primary" type="button" id="btn-publish">Publish</button>
+            </div>
+          </div>
+        </div>
+
+        <p class="preview-label">Preview</p>
+        <div class="preview" id="preview"></div>
+      </section>
+
+      <!-- Posts -->
+      <section class="panel hidden" id="panel-posts">
+        <div class="chips" id="chips">
+          <button class="chip active" data-filter="all">All</button>
+          <button class="chip" data-filter="published">Published</button>
+          <button class="chip" data-filter="draft">Drafts</button>
+          <button class="chip" data-filter="unpublished">Unpublished</button>
+        </div>
+        <div id="post-list"></div>
+        <div class="more-wrap hidden" id="list-more">
+          <button class="btn" type="button" id="list-more-btn">Load more</button>
+        </div>
+      </section>
+
+      <!-- Profile -->
+      <section class="panel hidden" id="panel-profile">
+        <h1>Profile</h1>
+
+        <div class="avatar-edit">
+          <img class="avatar" id="profile-avatar" alt="">
+          <div style="flex:1">
+            <input type="file" id="avatar-file" accept="image/*">
+          </div>
+        </div>
+
+        <label for="avatar-url">Avatar URL (filled automatically after upload, or paste your own)</label>
+        <input id="avatar-url" type="url" placeholder="https://...">
+
+        <label for="display-name">Display name</label>
+        <input id="display-name" type="text">
+
+        <label for="name-color">Name and highlight color</label>
+        <input id="name-color" type="color">
+
+        <label for="page-title">Browser tab title</label>
+        <input id="page-title" type="text">
+
+        <p class="actions">
+          <button class="btn primary" type="button" id="save-profile">Save profile</button>
+        </p>
+      </section>
+
+    </main>
+  </div>
+
+  <div class="toast hidden" id="toast"></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="format.js"></script>
+  <script src="admin.js"></script>
+</body>
+</html>
