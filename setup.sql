@@ -21,6 +21,9 @@ create table if not exists public.posts (
   published_at timestamptz
 );
 
+-- Photos attached to a post: a list of public image URLs (up to 4 are shown).
+alter table public.posts add column if not exists images text[] not null default '{}';
+
 create index if not exists posts_feed_idx
   on public.posts (published_at desc)
   where status = 'published';
@@ -162,6 +165,34 @@ create policy "admin deletes avatars"
   on storage.objects for delete
   to authenticated
   using (bucket_id = 'avatars' and public.is_admin());
+
+-- Post photos (public read, admin-only write)
+insert into storage.buckets (id, name, public)
+values ('post-images', 'post-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "public reads post images" on storage.objects;
+create policy "public reads post images"
+  on storage.objects for select
+  using (bucket_id = 'post-images');
+
+drop policy if exists "admin uploads post images" on storage.objects;
+create policy "admin uploads post images"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'post-images' and public.is_admin());
+
+drop policy if exists "admin updates post images" on storage.objects;
+create policy "admin updates post images"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'post-images' and public.is_admin());
+
+drop policy if exists "admin deletes post images" on storage.objects;
+create policy "admin deletes post images"
+  on storage.objects for delete
+  to authenticated
+  using (bucket_id = 'post-images' and public.is_admin());
 
 -- ---------------------------------------------------------------
 -- 6. Make yourself the admin (run AFTER creating your user in

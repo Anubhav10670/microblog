@@ -28,7 +28,7 @@ function applyProfile() {
 async function fetchPosts() {
   let query = db
     .from("posts")
-    .select("id, content, published_at")
+    .select("*")
     .eq("status", "published")
     .order("published_at", { ascending: false })
     .limit(CONFIG.PAGE_SIZE);
@@ -48,7 +48,7 @@ async function loadMore() {
     return;
   }
 
-  data.forEach((post) => feed.insertBefore(buildPost(profile, post.content, post.published_at), moreWrap));
+  data.forEach((post) => feed.insertBefore(buildPost(profile, post.content, post.published_at, post.images), moreWrap));
   if (data.length) oldestLoaded = data[data.length - 1].published_at;
 
   hasMore = data.length === CONFIG.PAGE_SIZE;

@@ -13,6 +13,12 @@ let editing = null;        // the post being edited, or null when writing a new 
 let listFilter = "all";
 let listCount = 0;         // how many rows are currently shown in the Posts tab
 
+const MAX_IMAGES = 4;
+const IMAGE_BUCKET = "post-images";
+let images = [];           // photo URLs attached to the post being written
+let pendingUploads = [];   // uploaded in this session but not saved with a post yet
+let removedExisting = [];  // photos taken off a saved post; deleted from storage on save
+
 const EMOJIS = ("😀 😃 😄 😁 😆 😅 😂 🤣 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😋 😛 😜 🤪 😝 🤔 🤨 😐 😑 😶 🙄 😏 😒 " +
   "😞 😔 😟 😕 🙁 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤫 🥱 😴 🤤 😷 " +
   "🤒 🤕 🤢 🤮 🥳 😎 🤓 🧐 👍 👎 👏 🙌 🙏 💪 👀 🤝 ✌️ 🤞 👌 ❤️ 🧡 💛 💚 💙 💜 🖤 🤍 💔 " +
@@ -119,7 +125,7 @@ function renderPreview() {
   const preview = $("preview");
   preview.innerHTML = "";
   const value = textarea.value;
-  if (!value.trim()) {
+  if (!value.trim() && !images.length) {
     const hint = document.createElement("p");
     hint.className = "note";
     hint.textContent = "Your post will appear here as you type.";
@@ -127,7 +133,7 @@ function renderPreview() {
     return;
   }
   const when = editing && editing.published_at ? editing.published_at : new Date().toISOString();
-  preview.appendChild(buildPost(profile, value, when));
+  preview.appendChild(buildPost(profile, value, when, images));
 }
 
 function onInput() {
@@ -164,6 +170,7 @@ const actions = {
     const url = prompt("Link address", "https://");
     if (url && url !== "https://") wrapSelection("[", "](" + url.trim() + ")", "link text");
   },
+  image: () => $("image-file").click(),
   emoji: () => $("emoji-panel").classList.toggle("hidden"),
 };
 
@@ -205,7 +212,17 @@ function refreshComposerButtons() {
   $("bump").checked = false;
 }
 
+// Delete photos that were uploaded but never saved with a post.
+function discardPending() {
+  if (pendingUploads.length) deleteFiles(pendingUploads);
+  pendingUploads = [];
+  removedExisting = [];
+  images = [];
+  renderAttached();
+}
+
 function resetComposer() {
+  discardPending();
   editing = null;
   textarea.value = "";
   $("emoji-panel").classList.add("hidden");
@@ -216,9 +233,9 @@ function resetComposer() {
 // status: "published" to publish, otherwise the status to save as.
 async function save(status) {
   const content = textarea.value.trim();
-  if (!content) return toast("Write something first.", true);
+  if (!content && !images.length) return toast("Write something or add a photo first.", true);
 
-  const row = { content, status };
+  const row = { content, status, images };
   if (editing && status === "published" && $("bump").checked) {
     row.published_at = new Date().toISOString();
   }
@@ -234,6 +251,9 @@ async function save(status) {
   if (!data.length) return toast("Not saved: permission denied.", true);
 
   toast(status === "published" ? "Published." : "Saved.");
+  if (removedExisting.length) deleteFiles(removedExisting);
+  pendingUploads = [];      // now owned by the saved post
+  removedExisting = [];
   resetComposer();
 }
 
@@ -241,6 +261,104 @@ $("btn-publish").addEventListener("click", () => save("published"));
 $("btn-draft").addEventListener("click", () => save(editing ? editing.status : "draft"));
 $("btn-clear").addEventListener("click", resetComposer);
 $("cancel-edit").addEventListener("click", resetComposer);
+
+// ---------- photos ----------
+
+// Turn a public URL back into the file name inside the bucket.
+function storagePath(url) {
+  const parts = url.split("/" + IMAGE_BUCKET + "/");
+  return parts.length > 1 ? decodeURIComponent(parts[1].split("?")[0]) : null;
+}
+
+async function deleteFiles(urls) {
+  const paths = urls.map(storagePath).filter(Boolean);
+  if (paths.length) await db.storage.from(IMAGE_BUCKET).remove(paths);
+}
+
+// Shrink big phone photos to 1600px so they upload and load quickly. GIFs stay as they are.
+async function prepareImage(file) {
+  if (file.type === "image/gif") return { blob: file, ext: "gif", type: "image/gif" };
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d").drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  return { blob, ext: "jpg", type: "image/jpeg" };
+}
+
+function renderAttached() {
+  const box = $("attached");
+  box.innerHTML = "";
+  images.forEach((url) => {
+    const thumb = document.createElement("div");
+    thumb.className = "thumb";
+    const pic = document.createElement("img");
+    pic.src = url;
+    pic.alt = "";
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.title = "Remove photo";
+    remove.textContent = "\u00d7";
+    remove.addEventListener("click", () => removeImage(url));
+    thumb.append(pic, remove);
+    box.appendChild(thumb);
+  });
+}
+
+function removeImage(url) {
+  images = images.filter((u) => u !== url);
+  if (pendingUploads.includes(url)) {
+    pendingUploads = pendingUploads.filter((u) => u !== url);
+    deleteFiles([url]);                 // never saved, so delete right away
+  } else {
+    removedExisting.push(url);          // part of a saved post: delete only once the edit is saved
+  }
+  renderAttached();
+  renderPreview();
+}
+
+async function addImages(files) {
+  files = files.filter((f) => f.type.startsWith("image/"));
+  if (!files.length) return;
+  const room = MAX_IMAGES - images.length;
+  if (room <= 0) return toast("Up to " + MAX_IMAGES + " photos per post.", true);
+  if (files.length > room) toast("Only " + MAX_IMAGES + " photos per post; extras skipped.", true);
+
+  setBusy(true);
+  for (const file of files.slice(0, room)) {
+    try {
+      const { blob, ext, type } = await prepareImage(file);
+      const path = Date.now() + "-" + Math.random().toString(36).slice(2, 8) + "." + ext;
+      const { error } = await db.storage.from(IMAGE_BUCKET).upload(path, blob, { contentType: type });
+      if (error) { toast(error.message, true); continue; }
+      const { data } = db.storage.from(IMAGE_BUCKET).getPublicUrl(path);
+      images.push(data.publicUrl);
+      pendingUploads.push(data.publicUrl);
+      renderAttached();
+      renderPreview();
+    } catch (e) {
+      toast("Could not read " + file.name + ". Try a JPG or PNG.", true);
+    }
+  }
+  setBusy(false);
+}
+
+$("image-file").addEventListener("change", (event) => {
+  const files = [...event.target.files];
+  event.target.value = "";           // lets you pick the same photo again
+  addImages(files);
+});
+
+// Paste a screenshot or copied image straight into the box.
+textarea.addEventListener("paste", (event) => {
+  const files = [...event.clipboardData.files];
+  if (files.some((f) => f.type.startsWith("image/"))) {
+    event.preventDefault();
+    addImages(files);
+  }
+});
 
 // ---------- posts list ----------
 
@@ -304,10 +422,15 @@ function buildRow(post) {
   const when = document.createElement("span");
   when.textContent = formatTimestamp(post.published_at || post.created_at);
   meta.append(badge, when);
+  if (post.images && post.images.length) {
+    const pics = document.createElement("span");
+    pics.textContent = "\u{1F4F7} " + post.images.length;
+    meta.append(pics);
+  }
 
   const text = document.createElement("div");
   text.className = "row-text";
-  text.textContent = post.content;
+  text.textContent = post.content || "(photos only)";
 
   const buttons = document.createElement("div");
   buttons.className = "row-actions";
@@ -324,8 +447,11 @@ function buildRow(post) {
 }
 
 function startEdit(post) {
+  discardPending();
   editing = post;
   textarea.value = post.content;
+  images = [...(post.images || [])];
+  renderAttached();
   refreshComposerButtons();
   switchTab("write");
   onInput();
@@ -346,6 +472,7 @@ async function deletePost(post) {
   if (error) return toast(error.message, true);
   if (!data.length) return toast("Not deleted: permission denied.", true);
   toast("Deleted.");
+  deleteFiles(post.images || []);
   loadPosts(true);
 }
 

@@ -71,7 +71,26 @@ function formatTimestamp(iso) {
 // profile = { display_name, avatar_url }
 const BLANK_AVATAR = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-function buildPost(profile, content, iso) {
+function buildImages(urls) {
+  const grid = document.createElement("div");
+  grid.className = "images n" + Math.min(urls.length, 4);
+  urls.slice(0, 4).forEach((url) => {
+    if (!/^https?:\/\//.test(url)) return;
+    const link = document.createElement("a");
+    link.href = url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const pic = document.createElement("img");
+    pic.src = url;
+    pic.alt = "";
+    pic.loading = "lazy";
+    link.appendChild(pic);
+    grid.appendChild(link);
+  });
+  return grid;
+}
+
+function buildPost(profile, content, iso, images) {
   const article = document.createElement("article");
   article.className = "post";
 
@@ -95,12 +114,16 @@ function buildPost(profile, content, iso) {
   time.dateTime = iso;
   time.textContent = formatTimestamp(iso);
 
-  const text = document.createElement("div");
-  text.className = "text";
-  text.innerHTML = formatPost(content);   // safe: formatPost escapes all HTML first
-
   head.append(name, time);
-  body.append(head, text);
+  body.append(head);
+
+  if (content && content.trim()) {
+    const text = document.createElement("div");
+    text.className = "text";
+    text.innerHTML = formatPost(content);   // safe: formatPost escapes all HTML first
+    body.append(text);
+  }
+  if (images && images.length) body.append(buildImages(images));
   article.append(img, body);
   return article;
 }

@@ -50,6 +50,9 @@
           <div class="composer-main">
             <textarea id="content" placeholder="What's on your mind?" rows="3"></textarea>
 
+            <div class="attached" id="attached"></div>
+            <input type="file" id="image-file" accept="image/*" multiple class="hidden">
+
             <div class="emoji-panel hidden" id="emoji-panel"></div>
 
             <div class="toolbar" id="toolbar">
@@ -58,6 +61,7 @@
               <button class="tool" type="button" data-action="italic" title="Italic (Ctrl+I)"><em>I</em></button>
               <button class="tool" type="button" data-action="strike" title="Strikethrough"><s>S</s></button>
               <button class="tool" type="button" data-action="link" title="Link">&#128279;</button>
+              <button class="tool" type="button" data-action="image" title="Add photos (up to 4)">&#128247;</button>
               <button class="tool" type="button" data-action="emoji" title="Emoji">&#128512;</button>
             </div>
 

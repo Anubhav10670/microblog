@@ -12,7 +12,8 @@ A stream of short thoughts. Plain HTML, CSS and JavaScript. Supabase stores the 
 | `style.css` | All styling, feed and admin |
 | `admin.html` / `admin.js` | Private page: sign in, write, edit, drafts, delete, profile |
 | `config.js` | Your Supabase URL and anon key (public values only) |
-| `setup.sql` | Tables, security rules and avatar storage |
+| `setup.sql` | Tables, security rules and storage for avatars and post photos |
+| `migration-add-photos.sql` | One-off upgrade for databases created before photo support |
 
 ## Setup
 
@@ -50,6 +51,10 @@ Posts are stored as plain text. The toolbar inserts these markers for you:
 | `*word*` | italic |
 | `~~word~~` | strikethrough |
 | `[text](https://url)` | link |
+
+Photos: tap the camera button (or paste an image into the box) to attach up to 4 per post. Big photos are shrunk to 1600px before upload. Posts can be photo-only. Removing a photo or deleting a post also deletes the file from storage.
+
+Upgrading an existing site? Run `migration-add-photos.sql` once in the Supabase SQL Editor before using photos.
 
 Emojis are just text: use the emoji button or your phone's keyboard. Everything else is escaped, so posts cannot inject HTML or scripts.
 
